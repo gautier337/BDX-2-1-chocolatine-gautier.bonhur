@@ -1,0 +1,148 @@
+name: check_repository_cleanliness
+
+on:
+  push:
+    branches:
+      - '*'
+      - '!ga-ignore'
+  pull_request:
+    branches:
+      - '*'
+      - '!ga-ignore'
+
+env:
+  MIRROR_URL: git@github.com:EpitechPromo2026/B-DOP-200-BDX-2-1-chocolatine-gautier.bonhur.git
+  EXECUTABLES: Makefile
+
+jobs:
+  check_repository_cleanliness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 0
+      - name: Check File
+        run: |
+          export vech=$(find $directory '#'*);
+          [[ $vech = '#'* ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'#');
+          [[ $vech = *'#' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'~');
+          [[ $vech = *'~' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'.o');
+          [[ $vech = *'.o' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'.a');
+          [[ $vech = *'.a' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'.so');
+          [[ $vech = *'.so' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'.gcno');
+          [[ $vech = *'.gcno' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'.gcda');
+          [[ $vech = *'.gcda' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'.gcov');
+          [[ $vech = *'.gcov' ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+          fi
+          export vech=$(find $directory *'pain_au_chocolat'*);
+          [[ $vech = *'pain_au_chocolat'* ]] && found=1;
+          if [[ $found -eq 1 ]];
+            then
+              echo "::error file=$vech,line=1,endLine=1,title=Unwanted file detected::$vech"
+            else
+              echo "$vech"
+          fi
+          if [[ $found -eq 1 ]];
+            then
+              exit 1
+          fi
+  check_program_compilation:
+    needs: check_repository_cleanliness
+    runs-on: ubuntu-latest
+    container:
+      image: epitechcontent/epitest-docker
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 0
+      - name: run make
+        run: make
+        timeout-minutes: 2
+      - name: run make clean
+        run: make clean
+      - name: check variable exists and executable
+        run: |
+          IFS=','
+          read -a array <<< "${{ env.EXECUTABLES }}"
+          for element in "${array[@]}";
+          do
+            if [ -f $element ] && [ -x $element ];
+            then
+              echo "Executable $element found !"
+            else
+              echo "::error file=$element,line=1,endLine=1,title=Executable not found::$element"
+              exit 1
+            fi
+          done
+  run_tests:
+      needs: check_program_compilation
+      runs-on: ubuntu-latest
+      container:
+         image: epitechcontent/epitest-docker
+      steps:
+         - uses: actions/checkout@v3
+           with:
+            fetch-depth: 0
+         - name: run make tests_run
+           run: make tests_run
+           timeout-minutes: 2
+  push_to_mirror:
+    if: github.event_name == 'push'
+    needs: run_tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: mirroring
+        uses: pixta-dev/repository-mirroring-action@v1
+        with:
+          target_repo_url:
+            "${{ env.MIRROR_URL }}"
+          ssh_private_key:
+            ${{ secrets.GIT_SSH_PRIVATE_KEY }}
